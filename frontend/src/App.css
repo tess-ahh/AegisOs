@@ -1,184 +1,89 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+import { useEffect, useState } from "react";
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+function App() {
+
+  const [status, setStatus] = useState("");
+  const [metrics, setMetrics] = useState({});
+  const [logs, setLogs] = useState([]);
+
+  useEffect(() => {
+
+    const fetchData = () => {
+
+      fetch("http://127.0.0.1:8000/")
+        .then(res => res.json())
+        .then(data => setStatus(data.status));
+
+      fetch("http://127.0.0.1:8000/metrics")
+        .then(res => res.json())
+        .then(data => setMetrics(data));
+
+      fetch("http://127.0.0.1:8000/logs")
+        .then(res => res.json())
+        .then(data => setLogs(data.logs));
+    };
+
+    fetchData();
+
+    const interval = setInterval(fetchData, 1000);
+
+    return () => clearInterval(interval);
+
+  }, []);
+
+  return (
+
+    <div className="min-h-screen bg-black text-cyan-400 p-6 font-mono">
+
+      <h1 className="text-5xl font-bold mb-8 tracking-widest text-center drop-shadow-[0_0_20px_#00ffff]">
+        🧠 AEGIS OS
+      </h1>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+
+        <div className="border border-cyan-400 rounded-2xl p-6 shadow-[0_0_20px_#00ffff]">
+          <h2 className="text-xl mb-3">⚡ CPU</h2>
+          <p className="text-4xl font-bold">{metrics.cpu}%</p>
+        </div>
+
+        <div className="border border-cyan-400 rounded-2xl p-6 shadow-[0_0_20px_#00ffff]">
+          <h2 className="text-xl mb-3">🧠 RAM</h2>
+          <p className="text-4xl font-bold">{metrics.ram}%</p>
+        </div>
+
+        <div className="border border-cyan-400 rounded-2xl p-6 shadow-[0_0_20px_#00ffff]">
+          <h2 className="text-xl mb-3">🌐 NETWORK</h2>
+          <p className="text-4xl font-bold">{metrics.network}%</p>
+        </div>
+
+      </div>
+
+      <div className="border border-cyan-400 rounded-2xl p-6 mb-8 shadow-[0_0_20px_#00ffff]">
+        <h2 className="text-2xl mb-4">🟢 SYSTEM STATUS</h2>
+        <p className="text-xl">{status}</p>
+      </div>
+
+      <div className="border border-cyan-400 rounded-2xl p-6 shadow-[0_0_20px_#00ffff]">
+
+        <h2 className="text-2xl mb-4">🧾 LIVE SYSTEM LOGS</h2>
+
+        <div className="space-y-2">
+
+          {logs.map((log, index) => (
+            <div
+              key={index}
+              className="bg-cyan-950/30 border border-cyan-700 p-3 rounded-lg"
+            >
+              {log}
+            </div>
+          ))}
+
+        </div>
+
+      </div>
+
+    </div>
+  );
 }
 
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
-  position: relative;
-  width: 100%;
-
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
-
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
-}
+export default App;

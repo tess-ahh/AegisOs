@@ -26,12 +26,17 @@ def metrics():
 
 @app.get("/logs")
 def logs():
+
+    sample_logs = [
+        "[INFO] firewall initialized",
+        "[INFO] network monitoring active",
+        "[WARN] suspicious packet detected",
+        "[AI] anomaly confidence 82%",
+        "[INFO] cpu balancing enabled",
+        "[SCAN] port scan completed",
+        "[INFO] memory optimization active"
+    ]
+
     return {
-        "logs": [
-            "system boot completed",
-            "firewall initialized",
-            "ai module standby",
-            "network scan running",
-            "no threats detected"
-        ]
+        "logs": random.sample(sample_logs, 5)
     }

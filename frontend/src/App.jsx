@@ -45,7 +45,7 @@ function useClock() {
   return time;
 }
 
-function Sparkline({ id, color, data }) {
+function Sparkline({ color, data }) {
   const chartRef = useRef(null);
   const instanceRef = useRef(null);
 
@@ -126,7 +126,6 @@ function DonutChart({ cpu, ram, net }) {
             data: [cpu || 33, ram || 33, net || 34],
             backgroundColor: ["#4f6ef7", "#a78bfa", "#34d399"],
             borderWidth: 0,
-            hoverOffset: 4,
           },
         ],
       },
@@ -137,9 +136,6 @@ function DonutChart({ cpu, ram, net }) {
         plugins: {
           legend: {
             display: false,
-          },
-          tooltip: {
-            enabled: false,
           },
         },
       },
@@ -176,27 +172,20 @@ function DonutChart({ cpu, ram, net }) {
 function MetricCard({
   label,
   value,
-  colorClass,
-  iconClass,
-  sparkId,
   sparkColor,
   history,
   badgeText,
   badgeWarn,
 }) {
   return (
-    <div className={`metric-card ${colorClass}`}>
+    <div className="metric-card">
       <div className="metric-top">
-        <div className={`metric-icon ${colorClass}`}>
-          <i className={`ti ${iconClass}`} />
-        </div>
+        <span>{label}</span>
 
         <span className={`metric-badge ${badgeWarn ? "warn" : "up"}`}>
           {badgeText}
         </span>
       </div>
-
-      <div className="metric-label">{label}</div>
 
       <div className="metric-value">
         {value !== null ? value : "--"}
@@ -204,7 +193,6 @@ function MetricCard({
       </div>
 
       <Sparkline
-        id={sparkId}
         color={sparkColor}
         data={history}
       />
@@ -214,20 +202,16 @@ function MetricCard({
 
 function LogItem({ log }) {
   const type = LOG_TYPE(log);
-  const tag = LOG_TAG(log);
-  const msg = LOG_MSG(log);
-
-  const now = new Date();
-
-  const time = [now.getHours(), now.getMinutes()]
-    .map((v) => String(v).padStart(2, "0"))
-    .join(":");
 
   return (
     <li className={`log-item ${type}`}>
-      <span className="log-tag">{tag}</span>
-      <span className="log-msg">{msg}</span>
-      <span className="log-time">{time}</span>
+      <span className="log-tag">
+        {LOG_TAG(log)}
+      </span>
+
+      <span className="log-msg">
+        {LOG_MSG(log)}
+      </span>
     </li>
   );
 }
@@ -244,6 +228,8 @@ export default function App() {
   });
 
   const [logs, setLogs] = useState([]);
+
+  const [processes, setProcesses] = useState([]);
 
   const [command, setCommand] = useState("");
 
@@ -265,8 +251,9 @@ export default function App() {
       fetch(`${API}/metrics`).then((r) => r.json()),
       fetch(`${API}/logs`).then((r) => r.json()),
       fetch(`${API}/ai-status`).then((r) => r.json()),
+      fetch(`${API}/processes`).then((r) => r.json()),
     ])
-      .then(([statusData, metricsData, logsData, aiData]) => {
+      .then(([statusData, metricsData, logsData, aiData, processData]) => {
         setStatus(statusData.status);
 
         setMetrics(metricsData);
@@ -274,6 +261,8 @@ export default function App() {
         setLogs(logsData.logs);
 
         setAiStatus(aiData);
+
+        setProcesses(processData.processes);
 
         setError(false);
 
@@ -327,7 +316,7 @@ export default function App() {
         }
 
         .root{
-          max-width:1100px;
+          max-width:1200px;
           margin:auto;
           padding:24px;
         }
@@ -336,6 +325,7 @@ export default function App() {
           display:flex;
           justify-content:space-between;
           margin-bottom:30px;
+          align-items:center;
         }
 
         .metrics-grid{
@@ -355,17 +345,17 @@ export default function App() {
         .metric-top{
           display:flex;
           justify-content:space-between;
-          margin-bottom:10px;
         }
 
         .metric-value{
           font-size:30px;
           font-weight:800;
+          margin-top:10px;
         }
 
-        .metric-label{
+        .metric-value span{
+          font-size:16px;
           color:#6b7280;
-          margin-bottom:5px;
         }
 
         .metric-badge.up{
@@ -387,18 +377,20 @@ export default function App() {
           flex-direction:column;
           gap:8px;
           list-style:none;
+          margin-top:12px;
         }
 
         .log-item{
           display:flex;
-          gap:8px;
+          gap:10px;
           background:#0c0e14;
-          padding:8px;
+          padding:10px;
           border-radius:8px;
         }
 
         .log-tag{
           font-weight:700;
+          color:#4f6ef7;
         }
 
         .log-msg{
@@ -424,6 +416,20 @@ export default function App() {
           cursor:pointer;
         }
 
+        .process-item{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          background:#0c0e14;
+          padding:10px;
+          border-radius:8px;
+          margin-top:8px;
+        }
+
+        .danger{
+          border:1px solid #ef4444;
+        }
+
         @media(max-width:700px){
           .metrics-grid{
             grid-template-columns:1fr;
@@ -445,40 +451,17 @@ export default function App() {
         </div>
 
         <div
-          className="panel"
-          style={{
-            marginBottom: "20px",
-            border:
-              aiStatus?.status === "ANOMALY DETECTED"
-                ? "1px solid #ef4444"
-                : "1px solid #1b1e2e",
-            background:
-              aiStatus?.status === "ANOMALY DETECTED"
-                ? "rgba(239,68,68,0.08)"
-                : "#10121a",
-          }}
+          className={`panel ${
+            aiStatus?.status === "ANOMALY DETECTED"
+              ? "danger"
+              : ""
+          }`}
+          style={{ marginBottom: "20px" }}
         >
-          <div className="panel-header">
-            <span className="panel-title">
-              🧠 AI Threat Analysis
-            </span>
+          <h2>🧠 AI Threat Analysis</h2>
 
-            <span
-              style={{
-                color:
-                  aiStatus?.status === "ANOMALY DETECTED"
-                    ? "#ef4444"
-                    : "#22c55e",
-              }}
-            >
-              {aiStatus?.score || "SCANNING"}
-            </span>
-          </div>
-
-          <div
+          <h1
             style={{
-              fontSize: "24px",
-              fontWeight: "800",
               marginTop: "10px",
               color:
                 aiStatus?.status === "ANOMALY DETECTED"
@@ -486,17 +469,18 @@ export default function App() {
                   : "#22c55e",
             }}
           >
-            {aiStatus?.status || "Initializing AI Engine..."}
-          </div>
+            {aiStatus?.status || "SCANNING"}
+          </h1>
+
+          <p style={{ marginTop: "8px" }}>
+            {aiStatus?.score || "Analyzing system"}
+          </p>
         </div>
 
         <div className="metrics-grid">
           <MetricCard
             label="CPU Usage"
             value={metrics.cpu}
-            colorClass="cpu"
-            iconClass="ti-cpu"
-            sparkId="cpuSpark"
             sparkColor="#4f6ef7"
             history={cpuHistory.current}
             badgeText={metrics.cpu > 80 ? "HIGH" : "NORMAL"}
@@ -506,9 +490,6 @@ export default function App() {
           <MetricCard
             label="RAM Usage"
             value={metrics.ram}
-            colorClass="ram"
-            iconClass="ti-device-desktop-analytics"
-            sparkId="ramSpark"
             sparkColor="#a78bfa"
             history={ramHistory.current}
             badgeText={metrics.ram > 80 ? "HIGH" : "NORMAL"}
@@ -518,9 +499,6 @@ export default function App() {
           <MetricCard
             label="Network Load"
             value={metrics.network}
-            colorClass="net"
-            iconClass="ti-wifi"
-            sparkId="netSpark"
             sparkColor="#34d399"
             history={netHistory.current}
             badgeText="ACTIVE"
@@ -530,7 +508,7 @@ export default function App() {
 
         <div className="bottom-grid">
           <div className="panel">
-            <h3>System Logs</h3>
+            <h3>📜 System Logs</h3>
 
             <ul className="log-list">
               {logs.map((log, i) => (
@@ -540,13 +518,14 @@ export default function App() {
           </div>
 
           <div className="panel">
-            <h3>Resource Overview</h3>
+            <h3>📊 Resource Overview</h3>
 
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "20px",
+                display:"flex",
+                alignItems:"center",
+                gap:"20px",
+                marginTop:"20px"
               }}
             >
               <DonutChart
@@ -565,18 +544,15 @@ export default function App() {
           </div>
         </div>
 
-        <div
-          className="panel"
-          style={{ marginTop: "12px" }}
-        >
-          <h3>Terminal</h3>
+        <div className="panel" style={{ marginTop: "12px" }}>
+          <h3>💻 Terminal</h3>
 
           <div
             style={{
-              display: "flex",
-              gap: "10px",
-              marginTop: "12px",
-              marginBottom: "16px",
+              display:"flex",
+              gap:"10px",
+              marginTop:"12px",
+              marginBottom:"16px"
             }}
           >
             <input
@@ -597,9 +573,9 @@ export default function App() {
 
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
+              display:"flex",
+              flexDirection:"column",
+              gap:"8px"
             }}
           >
             {terminalOutput.length === 0 ? (
@@ -624,6 +600,31 @@ export default function App() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+
+        <div className="panel" style={{ marginTop: "12px" }}>
+          <h3>🖥 Active Processes</h3>
+
+          <div style={{ marginTop: "12px" }}>
+            {processes.map((proc, i) => (
+              <div
+                key={i}
+                className="process-item"
+              >
+                <span>
+                  #{proc.pid}
+                </span>
+
+                <span>
+                  {proc.name}
+                </span>
+
+                <span>
+                  RAM {proc.memory}%
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

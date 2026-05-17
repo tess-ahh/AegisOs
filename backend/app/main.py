@@ -4,6 +4,7 @@ import random
 import psutil
 from sklearn.ensemble import IsolationForest
 import numpy as np
+import os
 
 # =========================
 # AI MODEL SETUP
@@ -155,4 +156,33 @@ def command(cmd: str):
             cmd.lower(),
             ["[ERROR] unknown command"]
         )
+    }
+@app.get("/processes")
+def get_processes():
+
+    process_list = []
+
+    for proc in psutil.process_iter(
+        ['pid', 'name', 'cpu_percent', 'memory_percent']
+    ):
+
+        try:
+            process_list.append({
+                "pid": proc.info['pid'],
+                "name": proc.info['name'] or "unknown",
+                "cpu": round(proc.info['cpu_percent'], 1),
+                "memory": round(proc.info['memory_percent'], 1)
+            })
+
+        except:
+            pass
+
+    process_list = sorted(
+        process_list,
+        key=lambda x: x["memory"],
+        reverse=True
+    )
+
+    return {
+        "processes": process_list[:10]
     }

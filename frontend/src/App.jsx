@@ -10,6 +10,7 @@ const LOG_TYPE = (log) => {
   if (log.startsWith("[WARN]")) return "warn";
   if (log.startsWith("[AI]")) return "ai";
   if (log.startsWith("[SCAN]")) return "scan";
+  if (log.startsWith("[ERROR]")) return "warn";
   return "info";
 };
 
@@ -105,12 +106,7 @@ function Sparkline({ id, color, data }) {
 
   return (
     <div style={{ height: 36, marginTop: 10 }}>
-      <canvas
-        id={id}
-        ref={chartRef}
-        role="img"
-        aria-label={`${id} sparkline`}
-      />
+      <canvas ref={chartRef} />
     </div>
   );
 }
@@ -146,9 +142,6 @@ function DonutChart({ cpu, ram, net }) {
             enabled: false,
           },
         },
-        animation: {
-          duration: 400,
-        },
       },
     });
 
@@ -156,9 +149,14 @@ function DonutChart({ cpu, ram, net }) {
   }, []);
 
   useEffect(() => {
-    if (!instanceRef.current || (!cpu && !ram && !net)) return;
+    if (!instanceRef.current) return;
 
-    instanceRef.current.data.datasets[0].data = [cpu, ram, net];
+    instanceRef.current.data.datasets[0].data = [
+      cpu || 0,
+      ram || 0,
+      net || 0,
+    ];
+
     instanceRef.current.update();
   }, [cpu, ram, net]);
 
@@ -168,14 +166,9 @@ function DonutChart({ cpu, ram, net }) {
         position: "relative",
         width: 140,
         height: 140,
-        flexShrink: 0,
       }}
     >
-      <canvas
-        ref={chartRef}
-        role="img"
-        aria-label="Donut chart showing CPU, RAM, and Network resource distribution"
-      />
+      <canvas ref={chartRef} />
     </div>
   );
 }
@@ -195,7 +188,7 @@ function MetricCard({
     <div className={`metric-card ${colorClass}`}>
       <div className="metric-top">
         <div className={`metric-icon ${colorClass}`}>
-          <i className={`ti ${iconClass}`} aria-hidden="true" />
+          <i className={`ti ${iconClass}`} />
         </div>
 
         <span className={`metric-badge ${badgeWarn ? "warn" : "up"}`}>
@@ -258,6 +251,8 @@ export default function App() {
 
   const [error, setError] = useState(false);
 
+  const [aiStatus, setAiStatus] = useState(null);
+
   const cpuHistory = useRef([]);
   const ramHistory = useRef([]);
   const netHistory = useRef([]);
@@ -269,11 +264,16 @@ export default function App() {
       fetch(`${API}/`).then((r) => r.json()),
       fetch(`${API}/metrics`).then((r) => r.json()),
       fetch(`${API}/logs`).then((r) => r.json()),
+      fetch(`${API}/ai-status`).then((r) => r.json()),
     ])
-      .then(([statusData, metricsData, logsData]) => {
+      .then(([statusData, metricsData, logsData, aiData]) => {
         setStatus(statusData.status);
+
         setMetrics(metricsData);
+
         setLogs(logsData.logs);
+
+        setAiStatus(aiData);
 
         setError(false);
 
@@ -303,7 +303,7 @@ export default function App() {
   }, [fetchData]);
 
   const runCommand = () => {
-    fetch(`http://127.0.0.1:8000/command/${command}`)
+    fetch(`${API}/command/${command}`)
       .then((res) => res.json())
       .then((data) => {
         setTerminalOutput(data.output);
@@ -320,385 +320,175 @@ export default function App() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;700;800&display=swap');
-
-        *, *::before, *::after {
-          box-sizing: border-box;
-          margin: 0;
-          padding: 0;
+        body{
+          background:#07080c;
+          color:white;
+          font-family:sans-serif;
         }
 
-        body {
-          background: #07080c;
-          color: #e2e4ea;
-          font-family: 'Syne', sans-serif;
-          min-height: 100vh;
+        .root{
+          max-width:1100px;
+          margin:auto;
+          padding:24px;
         }
 
-        .root {
-          max-width: 1100px;
-          margin: 0 auto;
-          padding: 28px 24px;
+        .topbar{
+          display:flex;
+          justify-content:space-between;
+          margin-bottom:30px;
         }
 
-        .topbar {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 32px;
+        .metrics-grid{
+          display:grid;
+          grid-template-columns:repeat(3,1fr);
+          gap:12px;
+          margin-bottom:20px;
         }
 
-        .logo {
-          display: flex;
-          align-items: center;
-          gap: 12px;
+        .metric-card,.panel{
+          background:#10121a;
+          border:1px solid #1b1e2e;
+          border-radius:12px;
+          padding:18px;
         }
 
-        .logo-mark {
-          width: 36px;
-          height: 36px;
-          border-radius: 9px;
-          background: #4f6ef7;
-          display: flex;
-          align-items: center;
-          justify-content: center;
+        .metric-top{
+          display:flex;
+          justify-content:space-between;
+          margin-bottom:10px;
         }
 
-        .logo-mark i {
-          font-size: 20px;
-          color: #fff;
+        .metric-value{
+          font-size:30px;
+          font-weight:800;
         }
 
-        .logo-name {
-          font-size: 18px;
-          font-weight: 800;
-          color: #fff;
+        .metric-label{
+          color:#6b7280;
+          margin-bottom:5px;
         }
 
-        .logo-sub {
-          font-size: 11px;
-          color: #4b5563;
-          font-family: 'Space Mono', monospace;
+        .metric-badge.up{
+          color:#22c55e;
         }
 
-        .topbar-right {
-          display: flex;
-          align-items: center;
-          gap: 12px;
+        .metric-badge.warn{
+          color:#fbbf24;
         }
 
-        .status-pill {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-          background: rgba(34,197,94,0.08);
-          border: 1px solid rgba(34,197,94,0.2);
-          border-radius: 20px;
-          padding: 5px 14px;
+        .bottom-grid{
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:12px;
         }
 
-        .status-pill.error {
-          background: rgba(239,68,68,0.08);
-          border-color: rgba(239,68,68,0.2);
+        .log-list{
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          list-style:none;
         }
 
-        .status-dot {
-          width: 7px;
-          height: 7px;
-          border-radius: 50%;
-          background: #22c55e;
+        .log-item{
+          display:flex;
+          gap:8px;
+          background:#0c0e14;
+          padding:8px;
+          border-radius:8px;
         }
 
-        .status-dot.error {
-          background: #ef4444;
+        .log-tag{
+          font-weight:700;
         }
 
-        .status-text {
-          font-size: 12px;
-          color: #22c55e;
-          font-family: 'Space Mono', monospace;
+        .log-msg{
+          flex:1;
+          color:#9ca3af;
         }
 
-        .status-text.error {
-          color: #ef4444;
+        .terminal-input{
+          flex:1;
+          background:#0c0e14;
+          border:1px solid #1b1e2e;
+          border-radius:8px;
+          padding:12px;
+          color:white;
         }
 
-        .clock {
-          font-size: 11px;
-          color: #374151;
-          font-family: 'Space Mono', monospace;
+        .terminal-button{
+          background:#4f6ef7;
+          border:none;
+          color:white;
+          padding:12px 18px;
+          border-radius:8px;
+          cursor:pointer;
         }
 
-        .section-label {
-          font-size: 10px;
-          font-weight: 700;
-          color: #374151;
-          letter-spacing: 2px;
-          text-transform: uppercase;
-          margin-bottom: 12px;
-        }
-
-        .metrics-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-          margin-bottom: 20px;
-        }
-
-        .metric-card {
-          background: #10121a;
-          border: 1px solid #1b1e2e;
-          border-radius: 12px;
-          padding: 18px;
-        }
-
-        .metric-top {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 12px;
-        }
-
-        .metric-icon {
-          width: 30px;
-          height: 30px;
-          border-radius: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .metric-icon.cpu {
-          background: rgba(79,110,247,0.14);
-        }
-
-        .metric-icon.ram {
-          background: rgba(167,139,250,0.14);
-        }
-
-        .metric-icon.net {
-          background: rgba(52,211,153,0.14);
-        }
-
-        .metric-badge {
-          font-size: 9px;
-          padding: 2px 8px;
-          border-radius: 4px;
-        }
-
-        .metric-badge.up {
-          background: rgba(34,197,94,0.1);
-          color: #22c55e;
-        }
-
-        .metric-badge.warn {
-          background: rgba(251,191,36,0.1);
-          color: #fbbf24;
-        }
-
-        .metric-label {
-          font-size: 11px;
-          color: #4b5563;
-          margin-bottom: 4px;
-        }
-
-        .metric-value {
-          font-size: 30px;
-          font-weight: 800;
-        }
-
-        .metric-value span {
-          font-size: 14px;
-          color: #4b5563;
-        }
-
-        .bottom-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-        }
-
-        .panel {
-          background: #10121a;
-          border: 1px solid #1b1e2e;
-          border-radius: 12px;
-          padding: 20px;
-        }
-
-        .panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 16px;
-        }
-
-        .panel-title {
-          font-size: 13px;
-          font-weight: 700;
-          color: #c9cdd9;
-          display: flex;
-          align-items: center;
-          gap: 6px;
-        }
-
-        .panel-action {
-          font-size: 11px;
-          color: #4f6ef7;
-        }
-
-        .log-list {
-          list-style: none;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-
-        .log-item {
-          display: flex;
-          gap: 8px;
-          font-size: 11px;
-          padding: 8px 10px;
-          border-radius: 7px;
-          background: #0c0e14;
-        }
-
-        .log-tag {
-          font-weight: 700;
-          font-size: 9px;
-          padding: 2px 6px;
-          border-radius: 3px;
-          min-width: 40px;
-          text-align: center;
-        }
-
-        .log-item.info .log-tag {
-          color: #4f6ef7;
-          background: rgba(79,110,247,0.1);
-        }
-
-        .log-item.warn .log-tag {
-          color: #fbbf24;
-          background: rgba(251,191,36,0.1);
-        }
-
-        .log-item.ai .log-tag {
-          color: #a78bfa;
-          background: rgba(167,139,250,0.1);
-        }
-
-        .log-item.scan .log-tag {
-          color: #34d399;
-          background: rgba(52,211,153,0.1);
-        }
-
-        .log-msg {
-          color: #9ca3af;
-          flex: 1;
-        }
-
-        .log-time {
-          font-size: 9px;
-          color: #2d3748;
-        }
-
-        .donut-wrap {
-          display: flex;
-          align-items: center;
-          gap: 24px;
-        }
-
-        .donut-legend {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          flex: 1;
-        }
-
-        .legend-item {
-          display: flex;
-          justify-content: space-between;
-        }
-
-        .legend-name {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 12px;
-          color: #6b7280;
-        }
-
-        .legend-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 2px;
-        }
-
-        .legend-val {
-          font-size: 11px;
-          font-weight: 700;
-        }
-
-        .terminal-input {
-          flex: 1;
-          background: #0c0e14;
-          border: 1px solid #1b1e2e;
-          border-radius: 8px;
-          padding: 12px;
-          color: #e2e4ea;
-          outline: none;
-        }
-
-        .terminal-button {
-          background: #4f6ef7;
-          border: none;
-          border-radius: 8px;
-          padding: 12px 18px;
-          color: white;
-          font-weight: 700;
-          cursor: pointer;
-        }
-
-        @media (max-width: 700px) {
-          .metrics-grid {
-            grid-template-columns: 1fr;
+        @media(max-width:700px){
+          .metrics-grid{
+            grid-template-columns:1fr;
           }
 
-          .bottom-grid {
-            grid-template-columns: 1fr;
+          .bottom-grid{
+            grid-template-columns:1fr;
           }
         }
       `}</style>
 
       <div className="root">
         <div className="topbar">
-          <div className="logo">
-            <div className="logo-mark">
-              <i className="ti ti-shield-bolt" />
-            </div>
+          <h1>AegisOS</h1>
 
-            <div>
-              <div className="logo-name">AegisOS</div>
-              <div className="logo-sub">CONTROL CENTER</div>
-            </div>
-          </div>
-
-          <div className="topbar-right">
-            <div className={`status-pill ${error ? "error" : ""}`}>
-              <div className={`status-dot ${error ? "error" : ""}`} />
-
-              <span className={`status-text ${error ? "error" : ""}`}>
-                {error
-                  ? "BACKEND OFFLINE"
-                  : status
-                  ? "ALL SYSTEMS NOMINAL"
-                  : "CONNECTING..."}
-              </span>
-            </div>
-
-            <span className="clock">{clock}</span>
+          <div>
+            {error ? "BACKEND OFFLINE" : "SYSTEM ONLINE"} | {clock}
           </div>
         </div>
 
-        <div className="section-label">Live Metrics</div>
+        <div
+          className="panel"
+          style={{
+            marginBottom: "20px",
+            border:
+              aiStatus?.status === "ANOMALY DETECTED"
+                ? "1px solid #ef4444"
+                : "1px solid #1b1e2e",
+            background:
+              aiStatus?.status === "ANOMALY DETECTED"
+                ? "rgba(239,68,68,0.08)"
+                : "#10121a",
+          }}
+        >
+          <div className="panel-header">
+            <span className="panel-title">
+              🧠 AI Threat Analysis
+            </span>
+
+            <span
+              style={{
+                color:
+                  aiStatus?.status === "ANOMALY DETECTED"
+                    ? "#ef4444"
+                    : "#22c55e",
+              }}
+            >
+              {aiStatus?.score || "SCANNING"}
+            </span>
+          </div>
+
+          <div
+            style={{
+              fontSize: "24px",
+              fontWeight: "800",
+              marginTop: "10px",
+              color:
+                aiStatus?.status === "ANOMALY DETECTED"
+                  ? "#ef4444"
+                  : "#22c55e",
+            }}
+          >
+            {aiStatus?.status || "Initializing AI Engine..."}
+          </div>
+        </div>
 
         <div className="metrics-grid">
           <MetricCard
@@ -740,100 +530,36 @@ export default function App() {
 
         <div className="bottom-grid">
           <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">
-                <i className="ti ti-activity" />
-                System Logs
-              </span>
-
-              <span className="panel-action">live feed</span>
-            </div>
+            <h3>System Logs</h3>
 
             <ul className="log-list">
-              {logs.length === 0 ? (
-                <li className="log-item info">
-                  <span className="log-tag">INFO</span>
-                  <span className="log-msg">
-                    Waiting for backend...
-                  </span>
-                </li>
-              ) : (
-                logs.map((log, i) => (
-                  <LogItem key={i} log={log} />
-                ))
-              )}
+              {logs.map((log, i) => (
+                <LogItem key={i} log={log} />
+              ))}
             </ul>
           </div>
 
           <div className="panel">
-            <div className="panel-header">
-              <span className="panel-title">
-                <i className="ti ti-chart-donut" />
-                Resource Overview
-              </span>
+            <h3>Resource Overview</h3>
 
-              <span className="panel-action">live</span>
-            </div>
-
-            <div className="donut-wrap">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "20px",
+              }}
+            >
               <DonutChart
                 cpu={metrics.cpu}
                 ram={metrics.ram}
                 net={metrics.network}
               />
 
-              <div className="donut-legend">
-                <div className="legend-item">
-                  <span className="legend-name">
-                    <span
-                      className="legend-dot"
-                      style={{ background: "#4f6ef7" }}
-                    />
-                    CPU
-                  </span>
-
-                  <span className="legend-val">
-                    {metrics.cpu ?? "--"}%
-                  </span>
-                </div>
-
-                <div className="legend-item">
-                  <span className="legend-name">
-                    <span
-                      className="legend-dot"
-                      style={{ background: "#a78bfa" }}
-                    />
-                    RAM
-                  </span>
-
-                  <span className="legend-val">
-                    {metrics.ram ?? "--"}%
-                  </span>
-                </div>
-
-                <div className="legend-item">
-                  <span className="legend-name">
-                    <span
-                      className="legend-dot"
-                      style={{ background: "#34d399" }}
-                    />
-                    Network
-                  </span>
-
-                  <span className="legend-val">
-                    {metrics.network ?? "--"}%
-                  </span>
-                </div>
-
-                <div className="legend-item">
-                  <span className="legend-name">
-                    Avg Load
-                  </span>
-
-                  <span className="legend-val">
-                    {avg ?? "--"}%
-                  </span>
-                </div>
+              <div>
+                <p>CPU: {metrics.cpu}%</p>
+                <p>RAM: {metrics.ram}%</p>
+                <p>NET: {metrics.network}%</p>
+                <p>AVG: {avg}%</p>
               </div>
             </div>
           </div>
@@ -843,31 +569,21 @@ export default function App() {
           className="panel"
           style={{ marginTop: "12px" }}
         >
-          <div className="panel-header">
-            <span className="panel-title">
-              <i className="ti ti-terminal-2" />
-              Terminal
-            </span>
-
-            <span className="panel-action">
-              interactive
-            </span>
-          </div>
+          <h3>Terminal</h3>
 
           <div
             style={{
               display: "flex",
               gap: "10px",
+              marginTop: "12px",
               marginBottom: "16px",
             }}
           >
             <input
               type="text"
               value={command}
-              onChange={(e) =>
-                setCommand(e.target.value)
-              }
-              placeholder="Enter command..."
+              onChange={(e) => setCommand(e.target.value)}
+              placeholder="scan network"
               className="terminal-input"
             />
 
@@ -887,11 +603,9 @@ export default function App() {
             }}
           >
             {terminalOutput.length === 0 ? (
-              <div className="log-item info">
-                <span className="log-tag">SYS</span>
-
+              <div className="log-item">
                 <span className="log-msg">
-                  Terminal ready. Try: scan network
+                  Terminal ready...
                 </span>
               </div>
             ) : (

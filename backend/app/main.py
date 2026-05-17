@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import random
+import psutil
 
 app = FastAPI()
 
@@ -17,11 +18,20 @@ def home():
     return {"status": "AegisOS backend alive ⚡"}
 
 @app.get("/metrics")
-def metrics():
+def get_metrics():
+
+    cpu = psutil.cpu_percent(interval=0.5)
+
+    ram = psutil.virtual_memory().percent
+
+    network = psutil.net_io_counters().bytes_sent / 1000000
+
+    network = min(int(network % 100), 100)
+
     return {
-        "cpu": random.randint(10, 90),
-        "ram": random.randint(20, 95),
-        "network": random.randint(1, 100)
+        "cpu": int(cpu),
+        "ram": int(ram),
+        "network": int(network)
     }
 
 @app.get("/logs")

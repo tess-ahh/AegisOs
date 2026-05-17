@@ -40,3 +40,36 @@ def logs():
     return {
         "logs": random.sample(sample_logs, 5)
     }
+@app.get("/command/{cmd}")
+def command(cmd: str):
+
+    responses = {
+        "scan network": [
+            "[SCAN] checking active hosts...",
+            "[SCAN] scanning ports...",
+            "[INFO] 12 devices detected"
+        ],
+
+        "run diagnostics": [
+            "[INFO] cpu stable",
+            "[INFO] memory healthy",
+            "[INFO] no system failures detected"
+        ],
+
+        "show threats": [
+            "[WARN] suspicious packet activity",
+            "[AI] anomaly score: 82%",
+            "[ALERT] possible intrusion attempt"
+        ],
+
+        "clear logs": [
+            "[SYSTEM] logs cleared"
+        ]
+    }
+
+    return {
+        "output": responses.get(
+            cmd.lower(),
+            ["[ERROR] unknown command"]
+        )
+    }
